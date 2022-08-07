@@ -99,6 +99,7 @@ class PostPagesTests(TestCase):
     def test_pages_show_correct_context(self):
         """Шаблоны отображаемых страниц сформированы
         с правильным контекстом."""
+        cache.clear()
         response = self.client.get(reverse('posts:index'))
         expcted_value = 'page_obj'
         self.assertIn(expcted_value, response.context)
@@ -112,7 +113,6 @@ class PostPagesTests(TestCase):
         for reverse_name, response_name in context_objects.items():
             with self.subTest(reverse_name=reverse_name):
                 self.assertEqual(response_name, reverse_name)
-                cache.clear()
 
     def test_group_posts_page_show_correct_context(self):
         """Шаблон group_posts.html сформирован с правильным контекстом."""
@@ -284,17 +284,26 @@ class FollowTests(TestCase):
         self.assertEqual(Follow.objects.all().count(), 0)
 
     def test_profile_follow(self):
-        cache.clear()
-        fake = Faker()
-        self.follower.get(reverse(
-            'posts:profile_follow', args=(FollowTests.following,)))
+        """Проверяем, что новый пост автора появляется только у подписчика."""
+        self.follower.get(
+            reverse(
+                'posts:profile_follow',
+                args=(FollowTests.following,)
+            )
+        )
         self.assertEqual(Follow.objects.count(), 1)
-        form_data = {
-            'text': fake.text()
+        post_text = 'New text'
+        form_data_for_follow_page = {
+            'text': post_text
         }
-        self.following.post(reverse('posts:post_create'),
-                            data=form_data, follow=True)
+        self.following.post(
+            reverse(
+                'posts:post_create'
+            ),
+            data=form_data_for_follow_page,
+            follow=True
+        )
         response = self.follower.get(reverse('posts:follow_index'))
-        self.assertContains(response, form_data['text'])
+        self.assertContains(response, post_text)
         response = self.follower_2.get(reverse('posts:follow_index'))
-        self.assertNotContains(response, form_data['text'])
+        self.assertNotContains(response, post_text)
