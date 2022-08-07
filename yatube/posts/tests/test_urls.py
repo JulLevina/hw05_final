@@ -171,5 +171,5 @@ class PostGuestURLTests(TestCase):
 
     def test_url_404(self):
         """Код ошибки 404 возвращает кастомный шаблон"""
-        response = self.client.get('/404/'))
+        response = self.client.get('/404/')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
