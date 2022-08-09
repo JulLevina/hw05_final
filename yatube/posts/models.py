@@ -30,7 +30,7 @@ class Post(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='posts',
-        db_index=True, # add commit without this, before push!
+        db_index=True,
         verbose_name='Автор')
     group = models.ForeignKey(
         'Group',
