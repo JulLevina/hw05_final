@@ -40,25 +40,27 @@ class PaginatorViewsTest(TestCase):
             )
             for _ in range(PaginatorViewsTest.number_of_posts)
         ]
-        cls.post = Post.objects.bulk_create(objs)
+        Post.objects.bulk_create(objs)
+
+    def setUp(self):
+        cache.clear()
 
     def test_page_contains_expected_value_of_records(self):
-        cache.clear()
-        context = {
-            reverse('posts:index'),
-            reverse('posts:group_posts',
-                    args=(PaginatorViewsTest.group.slug,)),
-            reverse('posts:profile',
-                    args=(PaginatorViewsTest.user,)),
+        pages_list = {
+            1: settings.NUMBER_OF_POSTS,
+            2: self.number_of_posts - settings.NUMBER_OF_POSTS,
         }
-        for reverse_name in context:
-            with self.subTest():
-                pages_list = {
-                    1: settings.NUMBER_OF_POSTS,
-                    2: self.number_of_posts - settings.NUMBER_OF_POSTS,
+        for page, post_number in pages_list.items():
+            with self.subTest(page=page):
+                context = {
+                    reverse('posts:index'),
+                    reverse('posts:group_posts',
+                            args=(PaginatorViewsTest.group.slug,)),
+                    reverse('posts:profile',
+                            args=(PaginatorViewsTest.user,)),
                 }
-                for page, post_number in pages_list.items():
-                    with self.subTest(page=page):
+                for reverse_name in context:
+                    with self.subTest():
                         response = self.client.get(reverse_name,
                                                    {'page': page})
                         self.assertEqual(len(response.context['page_obj']),
@@ -92,14 +94,15 @@ class PostPagesTests(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
         cache.clear()
 
     def test_pages_show_correct_context(self):
         """Шаблоны отображаемых страниц сформированы
         с правильным контекстом."""
-        cache.clear()
         response = self.client.get(reverse('posts:index'))
         expcted_value = 'page_obj'
         self.assertIn(expcted_value, response.context)
@@ -122,7 +125,7 @@ class PostPagesTests(TestCase):
         self.assertIn('group', response.context)
         first_post = response.context['page_obj'][0]
         self.assertEqual(response.context['group'], PostPagesTests.group)
-        self.assertEqual(first_post, Post.objects.first())
+        self.assertEqual(first_post, PostPagesTests.post)
 
     def test_profile_page_show_correct_context(self):
         """Шаблон profile.html сформирован с правильным контекстом."""
@@ -132,7 +135,7 @@ class PostPagesTests(TestCase):
         self.assertIn('author', response.context)
         first_post = response.context['page_obj'][0]
         self.assertEqual(response.context['author'], PostPagesTests.user)
-        self.assertEqual(first_post, Post.objects.first())
+        self.assertEqual(first_post, PostPagesTests.post)
 
     def test_post_detail_page_show_correct_context(self):
         """Шаблон post_detail.html сформирован с правильным контекстом."""
@@ -145,16 +148,17 @@ class PostPagesTests(TestCase):
     def test_image_correct_show(self):
         """Изображение передается в шаблон
         главной страницы, страницу профиля, группы, поста."""
-        url_context = {
+        url_context = (
             reverse('posts:index'),
             reverse('posts:group_posts', args=(PostPagesTests.group.slug,)),
             reverse('posts:profile', args=(PostPagesTests.user,)),
-            reverse('posts:post_detail', args=(PostPagesTests.post.pk,))
-        }
-        for url in url_context:
+            reverse('posts:post_detail', args=(PostPagesTests.post.pk,)),
+        )
+        for reverse_name in url_context:
             with self.subTest():
-                response = self.client.get(url)
-                self.assertIn('image', response.content.decode())
+                self.client.get(reverse_name)
+                first_post = Post.objects.first().image
+                self.assertEqual(first_post, 'posts/small.gif')
 
 
 class CasheIndexTests(TestCase):
@@ -177,7 +181,6 @@ class CasheIndexTests(TestCase):
     def test_cache_index_page(self):
         test_post = Post.objects.create(author=CasheIndexTests.user)
         response = self.client.get(reverse('posts:index'))
-        Post.objects.filter(pk=test_post.pk)
         test_post.delete()
         response_2 = self.client.get(reverse('posts:index'))
         self.assertEqual(response.content, response_2.content)
@@ -253,35 +256,91 @@ class FollowTests(TestCase):
 
     def test_follow_self(self):
         """Проверяем, что нельзя подписаться на самого себя."""
-        self.follower.get(reverse(
+        follows = Follow.objects.count()
+        response = self.follower.get(reverse(
             'posts:profile_follow', args=(FollowTests.follower,)),
             follow=True)
-        self.assertFalse(Follow.objects.filter(
-            user=FollowTests.follower,
-            author=FollowTests.follower,
-        ).exists()
-        )
+        if FollowTests.follower == FollowTests.following:
+            follow_self = reverse('posts:profile_follow',
+                                  args=(FollowTests.follower,))
+            login = reverse('users:login')
+            self.assertRedirects(
+                response, f'{login}?next={follow_self}')
+            self.assertEqual(follows, 0)
+            self.assertFalse(Follow.objects.filter(
+                user=FollowTests.follower,
+                author=FollowTests.follower,
+            ).exists()
+            )
 
     def test_follow(self):
         """Проверяем, что авторизованный пользователь
         может подписываться на других пользователей."""
-        self.follower.get(reverse(
-            'posts:profile_follow', args=(FollowTests.following,)),
+        fake = Faker()
+        follows = Follow.objects.count()
+        new_following = User.objects.create(
+            username=fake.user_name(),
+            password=fake.password())
+        response = self.follower.get(reverse(
+            'posts:profile_follow', args=(new_following,)),
             follow=True)
-        self.assertEqual(Follow.objects.all().count(), 1)
-        self.assertTrue(Follow.objects.filter(
-            user=FollowTests.follower,
-            author=FollowTests.following,
-        ).exists()
-        )
+        if FollowTests.follower == new_following:
+            follow_self = reverse('posts:profile_follow',
+                                  args=(FollowTests.follower,))
+            login = reverse('users:login')
+            self.assertRedirects(
+                response, f'{login}?next={follow_self}')
+        else:
+            self.assertEqual(follows + 1, 1)
+            self.assertTrue(Follow.objects.filter(
+                user=FollowTests.follower,
+                author=new_following,
+            ).exists()
+            )
 
     def test_unfollow(self):
         """Проверяем, что авторизованный пользователь
         может отписываться от авторов."""
-        self.follower.get(reverse(
+        fake = Faker()
+        follows = Follow.objects.count()
+        new_following = User.objects.create(
+            username=fake.user_name(),
+            password=fake.password())
+        response = self.follower.get(reverse(
             'posts:profile_unfollow', args=(FollowTests.following,)),
             follow=True)
-        self.assertEqual(Follow.objects.all().count(), 0)
+        if FollowTests.follower == new_following:
+            follow_self = reverse('posts:profile_follow',
+                                  args=(FollowTests.follower,))
+            login = reverse('users:login')
+            self.assertRedirects(
+                response, f'{login}?next={follow_self}')
+        else:
+            self.assertEqual(follows, 0)
+
+    def test_re_subscribing(self):
+        """Проверяем невозможность подписки
+        на одного и того же автора."""
+        fake = Faker()
+        follows = Follow.objects.count()
+        new_following = User.objects.create(
+            username=fake.user_name(),
+            password=fake.password())
+        response = self.follower.get(reverse(
+            'posts:profile_follow', args=(new_following,)),
+            follow=True)
+        if new_following == FollowTests.following:
+            follow_re_subscribing = reverse('posts:profile_follow',
+                                            args=(new_following))
+            profile_following = reverse('posts:profile', args=(new_following))
+            self.assertRedirects(
+                response, f'{profile_following}?next={follow_re_subscribing}')
+            self.assertEqual(follows, 0)
+            self.assertFalse(Follow.objects.filter(
+                user=FollowTests.follower,
+                author=FollowTests.follower,
+            ).exists()
+            )
 
     def test_profile_follow(self):
         """Проверяем, что новый пост автора появляется только у подписчика."""

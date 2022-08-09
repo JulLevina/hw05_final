@@ -24,11 +24,13 @@ class Post(models.Model):
         help_text='Текст нового поста')
     pub_date = models.DateTimeField(
         auto_now_add=True,
+        db_index=True,
         verbose_name='Дата публикации')
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='posts',
+        db_index=True, # add commit without this, before push!
         verbose_name='Автор')
     group = models.ForeignKey(
         'Group',
@@ -44,7 +46,7 @@ class Post(models.Model):
         blank=True
     )
 
-    class Meta(type):
+    class Meta:
         ordering = ['-pub_date']
         verbose_name = 'Пост'
         verbose_name_plural = 'Посты'
@@ -73,7 +75,7 @@ class Comment(models.Model):
         auto_now_add=True,
         verbose_name='Опубликовано: ')
 
-    class Meta(type):
+    class Meta:
         ordering = ['-created']
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
@@ -95,3 +97,10 @@ class Follow (models.Model):
         related_name='following',
         verbose_name='Автор'
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'], name='unique_follow'
+            )
+        ]

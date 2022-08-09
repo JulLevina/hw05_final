@@ -44,12 +44,15 @@ class PostUserURLTests(TestCase):
         url_templates_names_for_users = {
             reverse(
                 'posts:post_create'):
-            'posts/post_create.html',
+                    'posts/post_create.html',
             reverse(
                 'posts:post_edit',
                 args=(PostUserURLTests.post.pk,)):
-            'posts/post_create.html',
+                    'posts/post_create.html',
+            reverse('posts:follow_index'):
+                'posts/follow.html',
         }
+
         for reverse_name, template in url_templates_names_for_users.items():
             with self.subTest(reverse_name=reverse_name):
                 response = self.authorized_client.get(reverse_name)
@@ -57,25 +60,24 @@ class PostUserURLTests(TestCase):
 
     def test_url_for_users(self):
         """Страницы, доступные авторизованному пользователю,
-        являющемуся автором поста"""
-        url_pages_list = {
+        являющемуся автором поста."""
+        url_pages_list = (
             reverse(
-                'posts:post_create'):
-            HTTPStatus.OK,
+                'posts:post_create'),
             reverse(
                 'posts:post_edit',
-                args=[PostUserURLTests.post.pk]):
-            HTTPStatus.OK,
-        }
-        for reverse_name, status_code in url_pages_list.items():
-            with self.subTest(reverse_name=reverse_name):
+                args=(PostUserURLTests.post.pk,)),
+            reverse('posts:follow_index'),
+        )
+        for reverse_name in url_pages_list:
+            with self.subTest():
                 response = self.authorized_client.get(reverse_name)
-                self.assertEqual(response.status_code, status_code)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_post_edit_url_for_authorized_user_not_author(self):
-        """Страница редактирвоания поста '/posts/<post_id>/edit/'
-        недоступна для авторизованного пользователя,
-        не являющегося автором поста"""
+        """Страница редактирования поста '/posts/<post_id>/edit/'
+        не доступна для авторизованного пользователя,
+        не являющегося автором поста."""
         response = self.authorized_client_2.get(
             reverse('posts:post_edit',
                     args=(PostUserURLTests.post.pk,)))
@@ -99,9 +101,11 @@ class PostGuestURLTests(TestCase):
             text=fake.text(),
         )
 
+    def setUp(self):
+        cache.clear()
+
     def test_urls_for_guest_show_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
-        cache.clear()
         url_templates_names_for_guests = {
             reverse('posts:index'):
             'posts/index.html',
@@ -125,38 +129,38 @@ class PostGuestURLTests(TestCase):
 
     def test_url_for_guests(self):
         """Страницы, доступные любому пользователю."""
-        cache.clear()
-        url_pages_list = {
-            reverse('posts:index'):
-            HTTPStatus.OK,
+        url_pages_list = (
+            reverse('posts:index'),
             reverse(
                 'posts:group_posts',
-                args=(PostGuestURLTests.group.slug,)):
-            HTTPStatus.OK,
+                args=(PostGuestURLTests.group.slug,)),
             reverse(
                 'posts:profile',
-                args=(PostGuestURLTests.user,)):
-            HTTPStatus.OK,
+                args=(PostGuestURLTests.user,)),
             reverse(
                 'posts:post_detail',
-                args=(PostGuestURLTests.post.pk,)):
-            HTTPStatus.OK,
-        }
-        for reverse_name, status_code in url_pages_list.items():
-            with self.subTest(reverse_name=reverse_name):
+                args=(PostGuestURLTests.post.pk,)),
+        )
+        for reverse_name in url_pages_list:
+            with self.subTest():
                 response = self.client.get(reverse_name)
-                self.assertEqual(response.status_code, status_code)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_post_create_url_redirect_unauthorized_user_on_login(self):
-        """Cтраницы по адресу '/create/', '/posts/<post_id>/edit/'
-        перенаправят неавторизованного пользователя на страницу
+        """Cтраницы по адресу '/create/', '/posts/<post_id>/edit/',
+        '/follow/'перенаправят неавторизованного пользователя на страницу
         авторизации.
         """
-        url_addresses = {
+        url_addresses = (
             reverse('posts:post_create'),
             reverse('posts:post_edit',
                     kwargs={'post_id': PostGuestURLTests.post.pk}),
-        }
+            reverse('posts:follow_index'),
+            reverse('posts:profile_follow',
+                    args=(PostGuestURLTests.user,)),
+            reverse('posts:profile_unfollow',
+                    args=(PostGuestURLTests.user,)),
+        )
         for address in url_addresses:
             with self.subTest():
                 response = self.client.get(address, follow=True)
@@ -170,6 +174,6 @@ class PostGuestURLTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
 
     def test_url_404(self):
-        """Код ошибки 404 возвращает кастомный шаблон"""
+        """Код ошибки 404 возвращает кастомный шаблон."""
         response = self.client.get('/404/')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)

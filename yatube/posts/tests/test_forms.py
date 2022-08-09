@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from http import HTTPStatus
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -9,7 +10,6 @@ from django.urls import reverse
 from faker import Faker
 
 from ..models import Comment, Group, Post
-from ..forms import CommentForm, PostForm
 
 User = get_user_model()
 
@@ -45,13 +45,11 @@ class PostCreateFormTests(TestCase):
             content=small_gif,
             content_type='image/gif'
         )
-        cls.form = PostForm()
-        cls.comment_form = CommentForm()
 
     @classmethod
     def tearDownClass(cls):
-        super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
 
     def setUp(self):
         self.authorized_client = Client()
@@ -78,10 +76,17 @@ class PostCreateFormTests(TestCase):
             'posts:profile',
             args=(PostCreateFormTests.user,)))
         self.assertEqual(Post.objects.count(), posts_count + 1)
-        first_object = response.context['page_obj'][0]
-        self.assertEqual(first_object.text, test_text)
-        self.assertEqual(first_object.group, PostCreateFormTests.group)
-        self.assertEqual(first_object.author, PostCreateFormTests.user)
+        expcted_value = 'page_obj'
+        self.assertIn(expcted_value, response.context)
+        first_post = response.context['page_obj'][0]
+        self.assertEqual(first_post.text, test_text)
+        self.assertEqual(first_post.group, PostCreateFormTests.group)
+        self.assertEqual(first_post.author, PostCreateFormTests.user)
+        self.assertTrue(
+            Post.objects.filter(
+                image='posts/small.gif'
+            ).exists()
+        )
 
     def test_edit_post(self):
         """Валидная форма редактирует запись в Post."""
@@ -117,7 +122,7 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(Post.objects.count(), posts_count)
 
     def test_edit_post_by_author(self):
-        """Невалидная форма не редактирует запись в Post,
+        """Валидная форма не редактирует запись в Post,
         авторизованный пользователь, не являющйся автором поста,
         перенаправляется на страницу просмотра поста."""
         posts_count = Post.objects.count()
@@ -155,10 +160,12 @@ class PostCreateFormTests(TestCase):
                                     args=(PostCreateFormTests.post_1.pk,))
         self.assertRedirects(response, page_with_comment)
         self.assertEqual(Comment.objects.count(), comments_count + 1)
-        first_object = response.context['comments'][0]
-        self.assertEqual(first_object.text, form_comment_data['text'])
-        self.assertEqual(first_object.post, PostCreateFormTests.post_1)
-        self.assertEqual(first_object.author, PostCreateFormTests.user)
+        expcted_value = 'comments'
+        self.assertIn(expcted_value, response.context)
+        first_comment = response.context['comments'][0]
+        self.assertEqual(first_comment.text, form_comment_data['text'])
+        self.assertEqual(first_comment.post, PostCreateFormTests.post_1)
+        self.assertEqual(first_comment.author, PostCreateFormTests.user)
 
 
 class GuestPostCreateFormTests(TestCase):
@@ -180,7 +187,7 @@ class GuestPostCreateFormTests(TestCase):
         )
 
     def test_create_post_by_guest_client(self):
-        """Невалидная форма создания поста перенаправляет
+        """Валидная форма создания поста перенаправляет
         неавторизованного пользоателя на страницу авторизации."""
         posts_count = Post.objects.count()
         form_data = {
@@ -191,7 +198,7 @@ class GuestPostCreateFormTests(TestCase):
             reverse('posts:post_create'),
             data=form_data,
             follow=True)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
         login = reverse('login')
         new_post = reverse('posts:post_create')
         redirect = login + '?next=' + new_post
@@ -212,7 +219,7 @@ class GuestPostCreateFormTests(TestCase):
                     ),
             data=form_comment_data,
             follow=True)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
         login = reverse('login')
         page_without_comment = reverse('posts:add_comment',
                                        args=(GuestPostCreateFormTests.post.pk,)
