@@ -65,6 +65,8 @@ NUMBER_OF_POSTS = 10
 
 SHOW_POST_NUMBER_OF_CHARACTERS = 15
 
+CACHE_TIME = 20
+
 ROOT_URLCONF = 'yatube.urls'
 
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')

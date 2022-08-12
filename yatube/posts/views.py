@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render, redirect
@@ -10,7 +11,7 @@ from .utils import get_page_count
 User = get_user_model()
 
 
-@cache_page(20, key_prefix='index_page')
+@cache_page(settings.CACHE_TIME, key_prefix='index_page')
 def index(request):
     context = {
         'page_obj': get_page_count(Post.objects.select_related(
@@ -118,7 +119,7 @@ def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
     if request.user != author:
         Follow.objects.get_or_create(user=request.user, author=author)
-    return redirect('posts:profile', request.user.username)
+    return redirect('posts:profile', username=author.username)
 
 
 @login_required
@@ -126,4 +127,4 @@ def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
     if request.user != author:
         Follow.objects.filter(user=request.user, author=author).delete()
-    return redirect('posts:profile', request.user.username)
+    return redirect('posts:profile', username=author.username)

@@ -82,11 +82,7 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(first_post.text, test_text)
         self.assertEqual(first_post.group, PostCreateFormTests.group)
         self.assertEqual(first_post.author, PostCreateFormTests.user)
-        self.assertTrue(
-            Post.objects.filter(
-                image='posts/small.gif'
-            ).exists()
-        )
+        self.assertTrue(first_post.image)
 
     def test_edit_post(self):
         """Валидная форма редактирует запись в Post."""
@@ -125,22 +121,33 @@ class PostCreateFormTests(TestCase):
         """Валидная форма не редактирует запись в Post,
         авторизованный пользователь, не являющйся автором поста,
         перенаправляется на страницу просмотра поста."""
-        posts_count = Post.objects.count()
+        fake = Faker()
+        new_group = Group.objects.create(
+            title=fake.name(),
+            slug=fake.slug(),
+        )
+        test_post = Post.objects.create(
+            author=PostCreateFormTests.user_author,
+            text=fake.text(),
+            group=new_group
+        )
         form_data = {
-            'text': PostCreateFormTests.post_1.text,
-            'group': PostCreateFormTests.group.pk,
-            'author': PostCreateFormTests.user
+            'text': test_post.text,
+            'group': new_group
         }
-        response = self.authorized_client.post(
-            reverse('posts:post_edit',
-                    args=(PostCreateFormTests.post_1.pk,)),
+        self.authorized_client_author.post(
+            reverse('posts:post_create'),
             data=form_data,
             follow=True)
+        posts_count = Post.objects.count()
+        response = self.authorized_client.get(reverse(
+            'posts:post_edit',
+            args=(test_post.pk,)))
+        self.assertEqual(Post.objects.count(), posts_count)
         self.assertRedirects(response, reverse(
             'posts:post_detail',
-            args=(PostCreateFormTests.post_1.pk,)),
+            args=(test_post.pk,)),
         )
-        self.assertEqual(Post.objects.count(), posts_count)
 
     def test_comment_create(self):
         """Валидная форма создает комментарии к записям,
@@ -188,7 +195,7 @@ class GuestPostCreateFormTests(TestCase):
 
     def test_create_post_by_guest_client(self):
         """Валидная форма создания поста перенаправляет
-        неавторизованного пользоателя на страницу авторизации."""
+        неавторизованного пользователя на страницу авторизации."""
         posts_count = Post.objects.count()
         form_data = {
             'text': GuestPostCreateFormTests.post.text,
@@ -206,7 +213,7 @@ class GuestPostCreateFormTests(TestCase):
         self.assertEqual(Post.objects.count(), posts_count)
 
     def test_comment_create_by_guest(self):
-        """Невалидная форма создания комментария возвращает
+        """Валидная форма создания комментария возвращает
         неавторизованного пользователя на страницу просмотра поста."""
         fake = Faker()
         comments_count = Comment.objects.count()

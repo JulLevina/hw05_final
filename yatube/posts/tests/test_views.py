@@ -109,7 +109,7 @@ class PostPagesTests(TestCase):
         first_post = response.context['page_obj'][0]
         context_objects = {
             PostPagesTests.user: first_post.author,
-            PostPagesTests.post.text: first_post.text,
+            PostPagesTests.post: first_post,
             PostPagesTests.group: first_post.group,
             PostPagesTests.post.image: first_post.image,
         }
@@ -157,8 +157,7 @@ class PostPagesTests(TestCase):
         for reverse_name in url_context:
             with self.subTest():
                 self.client.get(reverse_name)
-                first_post = Post.objects.first().image
-                self.assertEqual(first_post, 'posts/small.gif')
+                self.assertEqual(PostPagesTests.post.image, 'posts/small.gif')
 
 
 class CasheIndexTests(TestCase):
@@ -247,122 +246,136 @@ class FollowTests(TestCase):
         )
 
     def setUp(self):
-        self.follower = Client()
-        self.follower.force_login(FollowTests.follower)
-        self.follower_2 = Client()
-        self.follower_2.force_login(FollowTests.follower_2)
-        self.following = Client()
-        self.following.force_login(FollowTests.following)
+        self.authorized_follower = Client()
+        self.authorized_follower.force_login(FollowTests.follower)
+        self.authorized_follower_2 = Client()
+        self.authorized_follower_2.force_login(FollowTests.follower_2)
+        self.authorized_following = Client()
+        self.authorized_following.force_login(FollowTests.following)
 
     def test_follow_self(self):
         """Проверяем, что нельзя подписаться на самого себя."""
-        follows = Follow.objects.count()
-        response = self.follower.get(reverse(
-            'posts:profile_follow', args=(FollowTests.follower,)),
+        fake = Faker()
+        new_following = User.objects.create_user(
+            username=fake.user_name(),
+            password=fake.password())
+        authorized_new_following = Client()
+        authorized_new_following.force_login(new_following)
+        self.assertFalse(Follow.objects.filter(
+            user=new_following,
+            author=new_following
+        ).exists()
+        )
+        response = authorized_new_following.get(reverse(
+            'posts:profile_follow',
+            args=(new_following.username,)),
             follow=True)
-        if FollowTests.follower == FollowTests.following:
-            follow_self = reverse('posts:profile_follow',
-                                  args=(FollowTests.follower,))
-            login = reverse('users:login')
-            self.assertRedirects(
-                response, f'{login}?next={follow_self}')
-            self.assertEqual(follows, 0)
-            self.assertFalse(Follow.objects.filter(
-                user=FollowTests.follower,
-                author=FollowTests.follower,
-            ).exists()
-            )
+        self.assertRedirects(response, (reverse(
+            'posts:profile', args=(new_following.username,))))
+        self.assertFalse(Follow.objects.filter(
+            user=new_following,
+            author=new_following,
+        ).exists()
+        )
 
     def test_follow(self):
         """Проверяем, что авторизованный пользователь
         может подписываться на других пользователей."""
         fake = Faker()
         follows = Follow.objects.count()
-        new_following = User.objects.create(
+        new_following = User.objects.create_user(
             username=fake.user_name(),
-            password=fake.password())
-        response = self.follower.get(reverse(
-            'posts:profile_follow', args=(new_following,)),
+            password=fake.password()
+        )
+        response = self.authorized_follower.get(reverse(
+            'posts:profile_follow',
+            args=(new_following.username,)),
             follow=True)
-        if FollowTests.follower == new_following:
-            follow_self = reverse('posts:profile_follow',
-                                  args=(FollowTests.follower,))
-            login = reverse('users:login')
-            self.assertRedirects(
-                response, f'{login}?next={follow_self}')
-        else:
-            self.assertEqual(follows + 1, 1)
-            self.assertTrue(Follow.objects.filter(
-                user=FollowTests.follower,
-                author=new_following,
-            ).exists()
-            )
+        author_profile = reverse(
+            'posts:profile',
+            args=(new_following.username,)
+        )
+        self.assertRedirects(response, author_profile)
+        self.assertEqual(follows + 1, 1)
+        self.assertTrue(Follow.objects.filter(
+            user=FollowTests.follower,
+            author=new_following,
+        ).exists()
+        )
 
     def test_unfollow(self):
         """Проверяем, что авторизованный пользователь
         может отписываться от авторов."""
         fake = Faker()
-        follows = Follow.objects.count()
         new_following = User.objects.create(
             username=fake.user_name(),
             password=fake.password())
-        response = self.follower.get(reverse(
-            'posts:profile_unfollow', args=(FollowTests.following,)),
+        response = self.authorized_follower.get(reverse(
+            'posts:profile_unfollow', args=(new_following.username,)),
             follow=True)
-        if FollowTests.follower == new_following:
-            follow_self = reverse('posts:profile_follow',
-                                  args=(FollowTests.follower,))
-            login = reverse('users:login')
-            self.assertRedirects(
-                response, f'{login}?next={follow_self}')
-        else:
-            self.assertEqual(follows, 0)
+        author_profile = reverse(
+            'posts:profile',
+            args=(new_following.username,))
+        self.assertRedirects(
+            response, author_profile)
+        self.assertFalse(Follow.objects.filter(
+            user=FollowTests.follower,
+            author=new_following,
+        ).exists()
+        )
 
     def test_re_subscribing(self):
         """Проверяем невозможность подписки
         на одного и того же автора."""
         fake = Faker()
         follows = Follow.objects.count()
-        new_following = User.objects.create(
+        new_following = User.objects.create_user(
             username=fake.user_name(),
             password=fake.password())
-        response = self.follower.get(reverse(
-            'posts:profile_follow', args=(new_following,)),
+        self.assertFalse(Follow.objects.filter(
+            user=FollowTests.follower,
+            author=new_following,
+        ).exists()
+        )
+        self.authorized_follower.get(reverse(
+            'posts:profile_follow', args=(new_following.username,)),
             follow=True)
-        if new_following == FollowTests.following:
-            follow_re_subscribing = reverse('posts:profile_follow',
-                                            args=(new_following))
-            profile_following = reverse('posts:profile', args=(new_following))
-            self.assertRedirects(
-                response, f'{profile_following}?next={follow_re_subscribing}')
-            self.assertEqual(follows, 0)
-            self.assertFalse(Follow.objects.filter(
-                user=FollowTests.follower,
-                author=FollowTests.follower,
-            ).exists()
-            )
+        self.assertEqual(follows + 1, 1)
+        self.authorized_follower.get(reverse(
+            'posts:profile_follow', args=(new_following.username,)),
+            follow=True)
+        self.assertEqual(follows + 1, 1)
 
     def test_profile_follow(self):
         """Проверяем, что новый пост автора появляется только у подписчика."""
-        self.follower.get(
-            reverse(
-                'posts:profile_follow',
-                args=(FollowTests.following,)
-            )
+        fake = Faker()
+        new_following = User.objects.create_user(
+            username=fake.user_name(),
+            password=fake.password()
+        )
+        authorized_new_following = Client()
+        authorized_new_following.force_login(new_following)
+        Follow.objects.create(
+            user=FollowTests.follower,
+            author=new_following
         )
         self.assertEqual(Follow.objects.count(), 1)
-        post_text = 'New text'
+        test_post = Post.objects.create(
+            text=fake.text(),
+            author=new_following)
         form_data_for_follow_page = {
-            'text': post_text
+            'text': test_post.text,
         }
-        self.following.post(
+        authorized_new_following.post(
             reverse(
                 'posts:post_create'
             ),
             data=form_data_for_follow_page,
             follow=True
         )
-        response = self.follower.get(reverse('posts:follow_index'))
-        self.assertContains(response, post_text)
-        response = self.follower_2.get(reverse('posts:follow_index'))
-        self.assertNotContains(response, post_text)
+        response = self.authorized_follower.get(
+            reverse('posts:follow_index'))
+        self.assertContains(response, test_post)
+        response = self.authorized_follower_2.get(
+            reverse('posts:follow_index'))
+        self.assertNotContains(response, test_post)
