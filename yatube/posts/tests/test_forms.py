@@ -140,9 +140,11 @@ class PostCreateFormTests(TestCase):
             data=form_data,
             follow=True)
         posts_count = Post.objects.count()
-        response = self.authorized_client.get(reverse(
+        response = self.authorized_client.post(reverse(
             'posts:post_edit',
-            args=(test_post.pk,)))
+            args=(test_post.pk,)),
+            data=form_data,
+            follow=True)
         self.assertEqual(Post.objects.count(), posts_count)
         self.assertRedirects(response, reverse(
             'posts:post_detail',

@@ -166,16 +166,6 @@ class CasheIndexTests(TestCase):
         fake = Faker()
         cls.user = User.objects.create_user(
             username=fake.user_name())
-        cls.group = Group.objects.create(
-            title=fake.name(),
-            slug=fake.slug(),
-            description=fake.text(),
-        )
-        cls.post = Post.objects.create(
-            author=cls.user,
-            text=fake.text(),
-            group=cls.group,
-        )
 
     def test_cache_index_page(self):
         test_post = Post.objects.create(author=CasheIndexTests.user)
@@ -310,12 +300,18 @@ class FollowTests(TestCase):
         new_following = User.objects.create(
             username=fake.user_name(),
             password=fake.password())
+        Follow.objects.create(
+            user=FollowTests.follower,
+            author=new_following
+        )
+        self.assertEqual(Follow.objects.count(), 1)
         response = self.authorized_follower.get(reverse(
             'posts:profile_unfollow', args=(new_following.username,)),
             follow=True)
         author_profile = reverse(
             'posts:profile',
             args=(new_following.username,))
+        self.assertEqual(Follow.objects.count(), 0)
         self.assertRedirects(
             response, author_profile)
         self.assertFalse(Follow.objects.filter(
@@ -363,14 +359,11 @@ class FollowTests(TestCase):
         test_post = Post.objects.create(
             text=fake.text(),
             author=new_following)
-        form_data_for_follow_page = {
-            'text': test_post.text,
-        }
         authorized_new_following.post(
             reverse(
                 'posts:post_create'
             ),
-            data=form_data_for_follow_page,
+            {'text': test_post.text},
             follow=True
         )
         response = self.authorized_follower.get(
