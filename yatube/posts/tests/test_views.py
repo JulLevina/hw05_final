@@ -304,14 +304,15 @@ class FollowTests(TestCase):
             user=FollowTests.follower,
             author=new_following
         )
-        self.assertEqual(Follow.objects.count(), 1)
+        follows = Follow.objects.count()
+        self.assertEqual(follows, 1)
         response = self.authorized_follower.get(reverse(
             'posts:profile_unfollow', args=(new_following.username,)),
             follow=True)
         author_profile = reverse(
             'posts:profile',
             args=(new_following.username,))
-        self.assertEqual(Follow.objects.count(), 0)
+        self.assertEqual(follows - 1, 0)
         self.assertRedirects(
             response, author_profile)
         self.assertFalse(Follow.objects.filter(
@@ -349,8 +350,6 @@ class FollowTests(TestCase):
             username=fake.user_name(),
             password=fake.password()
         )
-        authorized_new_following = Client()
-        authorized_new_following.force_login(new_following)
         Follow.objects.create(
             user=FollowTests.follower,
             author=new_following
@@ -359,16 +358,11 @@ class FollowTests(TestCase):
         test_post = Post.objects.create(
             text=fake.text(),
             author=new_following)
-        authorized_new_following.post(
-            reverse(
-                'posts:post_create'
-            ),
-            {'text': test_post.text},
-            follow=True
-        )
         response = self.authorized_follower.get(
             reverse('posts:follow_index'))
-        self.assertContains(response, test_post)
+        all_posts = response.context['page_obj']
+        self.assertIn(test_post, all_posts)
         response = self.authorized_follower_2.get(
             reverse('posts:follow_index'))
-        self.assertNotContains(response, test_post)
+        all_posts = response.context['page_obj']
+        self.assertNotIn(test_post, all_posts)
