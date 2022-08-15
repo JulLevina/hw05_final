@@ -15,7 +15,7 @@ from ..forms import PostForm
 
 User = get_user_model()
 
-TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+settings.MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
 class PaginatorViewsTest(TestCase):
@@ -67,7 +67,7 @@ class PaginatorViewsTest(TestCase):
                                          post_number)
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+@override_settings(MEDIA_ROOT=settings.MEDIA_ROOT)
 class PostPagesTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -94,7 +94,7 @@ class PostPagesTests(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
         super().tearDownClass()
 
     def setUp(self):
@@ -354,7 +354,6 @@ class FollowTests(TestCase):
             user=FollowTests.follower,
             author=new_following
         )
-        self.assertEqual(Follow.objects.count(), 1)
         test_post = Post.objects.create(
             text=fake.text(),
             author=new_following)
