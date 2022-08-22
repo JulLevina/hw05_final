@@ -21,10 +21,8 @@ SECRET_KEY = 'nakrb$m-is)u_wribo!ku$&(0wfto)%j)(s#sg^02l#+=3)*b8'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '[::1]',
-    'testserver',
+    'www.JulLevina.pythonanywhere.com',
+    'JulLevina.pythonanywhere.com',
 ]
 
 INSTALLED_APPS = [
