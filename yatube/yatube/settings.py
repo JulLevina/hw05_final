@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = 'nakrb$m-is)u_wribo!ku$&(0wfto)%j)(s#sg^02l#+=3)*b8'
 
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'www.JulLevina.pythonanywhere.com',
