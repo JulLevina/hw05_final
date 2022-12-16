@@ -8,7 +8,7 @@
     <li>Дата публикации: {{ post.pub_date|date:"d E Y" }}</li>
   </ul>
   {% thumbnail post.image "660x339" crop="center" upscale=True as im %}
-    <img class="card-img my-2" src="{{ im.url }}" />
+    <img src="{{ im.url }}" width="{{ im.width }}"/>
   {% endthumbnail %}
 <p>{{ post.text|linebreaksbr }}</p>
 <a href="{% url 'posts:post_detail' post.id %}">подробная информация</a>
