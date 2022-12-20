@@ -1,3 +1,45 @@
-# hw05_final
+# __Yatube__
+## _Описание_
 
-[![CI](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml/badge.svg?branch=master)](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml)
+Yatube - это мини социальная сеть с настроенной системой регистрации и авторизации пользователей, функционалом создания записей и добавления фото, комментирования постов и возможностью подписываться на любимых авторов.
+
+## _Технологии_
+
+Python 3.7
+
+Django 2.2.19
+
+В проекте используются декораторы, создан кастомный контекст-процессор, настроено постраничное отображение контента с помощью класса Paginator. Библиотека Pillow позволяет добавлять к записям изображения. Проект покрыт тестами модуля Unittest.
+
+## _Запуск проекта в dev-режиме_
+
+- Установите и активируйте виртуальное окружение
+> python -m venv venv
+
+> source venv/Scripts/activate
+- Установите зависимости из файла requirements.txt
+> pip install -r requirements.txt
+- Создайте и выполните миграции:
+> python manage.py makemigrations
+
+> python manage.py migrate
+- В папке с файлом manage.py выполните команду:
+> python3 manage.py runserver
+
+## _В проекте настроены следующие адреса:_
+
+- auth/signup/ (_регистрация_),
+- auth/login/ (_авторизация_),
+- auth/password_change/ (_изменение пароля_)
+- create/ (_создание записи_)
+- posts/{post_id}/edit/ (_редактирование записи_)
+- posts/{post_id}/ (_подробная информация о записи_)
+- profile/{username}/ (_просмотр всех записей выбранного автора_)
+
+
+## _Лицензия_
+
+MIT
+
+## _Разработчики_
+[Левина Юля](https://github.com/JulLevina)
